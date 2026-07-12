@@ -85,3 +85,24 @@ run-scratch-image:
 .PHONY: debug-scratch-image
 debug-scratch-image:
 	docker run -it --cap-add=SYS_PTRACE --rm --pid="container:buggy-scratch" buggy-debug /bin/bash
+
+
+### KUBERNETES
+
+.PHONY: tag-buggy-scratch-image-kind
+tag-buggy-scratch-image-kind: build-scratch-image
+	docker tag buggy-scratch:latest buggy-scratch:v1-kind
+
+.PHONY: kind-load-buggy-scratch-image
+kind-load-buggy-scratch-image: tag-buggy-scratch-image-kind
+	kind load docker-image --name kind buggy-scratch:v1-kind
+
+.PHONY: deploy-buggy-scratch
+deploy-buggy-scratch: kind-load-buggy-scratch-image
+	kubectl apply -f k8s/deploy.yaml
+
+.PHONY: undeploy-buggy-scratch
+undeploy-buggy-scratch: 
+	kubectl delete -f k8s/deploy.yaml
+
+
