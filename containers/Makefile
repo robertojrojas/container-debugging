@@ -96,6 +96,18 @@ run-kind:
 tag-buggy-scratch-image-kind: build-scratch-image
 	docker tag buggy-scratch:latest buggy-scratch:v1-kind
 
+.PHONY: tag-buggy-debug-image-kind
+tag-buggy-debug-image-kind: build-debug-image
+	docker tag buggy-debug:latest buggy-debug:v1-kind
+
+.PHONY: kind-load-buggy-scratch
+kind-load-buggy-scratch:
+	kind load docker-image --name debug buggy-scratch:v1-kind
+
+.PHONY: kind-load-buggy-debug
+kind-load-buggy-debug:
+	kind load docker-image --name debug buggy-debug:v1-kind
+
 .PHONY: deploy-buggy-scratch
 deploy-buggy-scratch: 
 	kubectl apply -f k8s/deploy.yaml
@@ -124,11 +136,25 @@ DEBUG_POD_CONTAINER := buggy-debug
 debug-buggy-scrath-k8s:
 	dlv connect 127.0.0.1:2345 --init=./hack/delve-local-initfile
 
-.PHONY: exec-dlv-basic-k8s-with-src
-exec-dlv-basic-k8s-with-src: run-basic-image-with-ptrace copy-dlv-to-container
-	@SCRATCH_POD=$(shell kubectl get pods -l app=buggy-scratch -o jsonpath='{.items[0].metadata.name}')
-	kubectl cp $$(pwd) $(SCRATCH_POD):/src
+.PHONY: exec-scratch-k8s-add-debug
+exec-scratch-k8s-add-debug:
+	$(eval SCRATCH_POD := $(shell kubectl get pods -l app=buggy-scratch -o jsonpath='{.items[0].metadata.name}'))
+	echo "pod: $(SCRATCH_POD)"
+	kubectl debug -it pod/$(SCRATCH_POD) --image=buggy-debug:v1-kind --container=buggy-debug \
+	 --target=buggy-scratch -- bash
+
+.PHONY: exec-dlv-scratch-k8s-cp-src
+exec-dlv-scratch-k8s-cp-src:
+	$(eval SCRATCH_POD=$(shell kubectl get pods -l app=buggy-scratch -o jsonpath='{.items[0].metadata.name}'))
+	kubectl cp $$(pwd) $(SCRATCH_POD):/src -c buggy-debug
 	kubectl cp /usr/local/go $(SCRATCH_POD):/goroot -c buggy-debug
-	kubectl debug -it pod/$(SCRATCH_POD) --image=buggy-debug:v1-kind --container=$(DEBUG_POD_CONTAINER) --target=buggy-scratch -- \
+	#kubectl debug -it pod/$(SCRATCH_POD) --image=buggy-debug:v1-kind --container=buggy-debug --target=buggy-scratch -- \
+	#	/dlv attach 1 --headless --listen=0.0.0.0:2345 --api-version=2 --accept-multiclient
+
+.PHONY: exec-dlv-debug-k8s-reattach
+exec-dlv-debug-k8s-reattach:
+	$(eval SCRATCH_POD=$(shell kubectl get pods -l app=buggy-scratch -o jsonpath='{.items[0].metadata.name}'))
+	kubectl attach $(SCRATCH_POD) -c buggy-debug -n default -i -t -- \
 		/dlv attach 1 --headless --listen=0.0.0.0:2345 --api-version=2 --accept-multiclient
+
 
