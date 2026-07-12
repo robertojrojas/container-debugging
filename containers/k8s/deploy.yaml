@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buggy-scratch
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: buggy-scratch
+  template:
+    metadata:
+      labels:
+        app: buggy-scratch
+    spec:
+      containers:
+      - name: buggy-scratch 
+        # Assumes the following was run:
+        # make kind-load-buggy-scratch-image 
+        image: buggy-scratch:v1-kind
+        ports:
+        - containerPort: 8080
+          name: app 
+        - containerPort: 2345
+          name: debug
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buggy-scratch 
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: buggy-scratch
+  ports:
+  - port: 8080 
+    targetPort: 8080
+    protocol: TCP
+    name: app
+  - port: 2345
+    targetPort: 2345
+    protocol: TCP
+    name: debug
