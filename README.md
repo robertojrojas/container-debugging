@@ -1,4 +1,4 @@
-# Debugging Go programs in containers
+# Debugging Go programs in containers (Original version by Derek Parker)
 
 This presentation teaches practical tips for debugging your Go programs
 while they are running in a container. In this talk I will cover various ways
