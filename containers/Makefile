@@ -13,7 +13,7 @@ build-image:
 	docker build --rm -f build/Dockerfile-basic -t $(BASIC_IMG):latest .
 
 .PHONY: run-basic-image
-run-basic-image:
+run-basic-image: build-image
 	docker run -it --name basic-image --detach -p $(LOCAL_HTTP_PORT):8080 --rm $(BASIC_IMG)
 
 .PHONY: kill-basic-image
@@ -27,7 +27,7 @@ curl-app:
 # Copy dlv binary into basic container.
 .PHONY: copy-dlv-to-container
 copy-dlv-to-container:
-	docker cp ../bin/dlv $$(docker ps -aqf "ancestor=$(BASIC_IMG)"):/dlv
+	docker cp $$(which dlv) $$(docker ps -aqf "ancestor=$(BASIC_IMG)"):/dlv
 
 # Exec dlv within basic container.
 .PHONY: exec-dlv-basic-container
