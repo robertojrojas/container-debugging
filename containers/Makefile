@@ -5,6 +5,7 @@
 BASIC_IMG := buggy-basic
 SCRATCH_IMG := buggy-scratch
 DELVE_IMG := buggy-with-delve
+LOCAL_HTTP_PORT := 8080
 
 # Build basic container image.
 .PHONY: build-image
@@ -13,11 +14,15 @@ build-image:
 
 .PHONY: run-basic-image
 run-basic-image:
-	docker run -it --detach -p 8080:8080 --rm $(BASIC_IMG)
+	docker run -it --name basic-image --detach -p $(LOCAL_HTTP_PORT):8080 --rm $(BASIC_IMG)
+
+.PHONY: kill-basic-image
+kill-basic-image:
+	docker kill basic-image
 
 .PHONY: curl-app
 curl-app:
-	curl localhost:8080/foo/bar
+	curl localhost:$(LOCAL_HTTP_PORT)/foo/bar
 
 # Copy dlv binary into basic container.
 .PHONY: copy-dlv-to-container
@@ -36,7 +41,7 @@ change-ptrace-yama:
 # Run basic image with ptrace SYS_CAP.
 .PHONY: run-basic-image-with-ptrace
 run-basic-image-with-ptrace:
-	docker run -it --detach --rm -p 8080:8080 --cap-add=SYS_PTRACE $(BASIC_IMG)
+	docker run -it --detach --rm -p $(LOCAL_HTTP_PORT):8080 --cap-add=SYS_PTRACE $(BASIC_IMG)
 
 # Exec dlv within basic container, using substitute path config.
 .PHONY: exec-dlv-basic-container-with-src
@@ -56,7 +61,7 @@ build-debug-image:
 # Run scratch image.
 .PHONY: run-scratch-image
 run-scratch-image:
-	docker run -it --detach -p 8080:8080 --name=buggy-scratch --rm $(SCRATCH_IMG)
+	docker run -it --detach -p $(LOCAL_HTTP_PORT):8080 --name=buggy-scratch --rm $(SCRATCH_IMG)
 
 # Debug scratch image.
 .PHONY: debug-scratch-image
