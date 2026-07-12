@@ -30,7 +30,7 @@ metadata:
   name: buggy-scratch 
   namespace: default
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: buggy-scratch
   ports:

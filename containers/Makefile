@@ -86,23 +86,49 @@ run-scratch-image:
 debug-scratch-image:
 	docker run -it --cap-add=SYS_PTRACE --rm --pid="container:buggy-scratch" buggy-debug /bin/bash
 
+### Kubernetes
 
-### KUBERNETES
+.PHONY: run-kind
+run-kind:
+	k8s/create_kind_cluster.sh
 
 .PHONY: tag-buggy-scratch-image-kind
 tag-buggy-scratch-image-kind: build-scratch-image
 	docker tag buggy-scratch:latest buggy-scratch:v1-kind
 
-.PHONY: kind-load-buggy-scratch-image
-kind-load-buggy-scratch-image: tag-buggy-scratch-image-kind
-	kind load docker-image --name kind buggy-scratch:v1-kind
-
 .PHONY: deploy-buggy-scratch
-deploy-buggy-scratch: kind-load-buggy-scratch-image
+deploy-buggy-scratch: 
 	kubectl apply -f k8s/deploy.yaml
 
 .PHONY: undeploy-buggy-scratch
 undeploy-buggy-scratch: 
 	kubectl delete -f k8s/deploy.yaml
 
+.PHONY: kubectl-port-forward-2345
+kubectl-port-forward-2345:
+	kubectl port-forward svc/buggy-scratch 2345:2345
+
+.PHONY: kubectl-port-forward-8080
+kubectl-port-forward-8080:
+	kubectl port-forward svc/buggy-scratch 8080:8080
+
+KIND_NODE ?= $(shell kubectl get node -o "custom-columns=INTERNAL_IP:.status.addresses[].address" --no-headers | tail -1)
+NODE_PORT ?= 32080
+CURL_URL := "$(KIND_NODE):$(NODE_PORT)"
+.PHONY: curl-app-kind
+curl-app-kind:
+	curl $(CURL_URL)
+
+DEBUG_POD_CONTAINER := buggy-debug
+.PHONY: debug-buggy-scrath-k8s
+debug-buggy-scrath-k8s:
+	dlv connect 127.0.0.1:2345 --init=./hack/delve-local-initfile
+
+.PHONY: exec-dlv-basic-k8s-with-src
+exec-dlv-basic-k8s-with-src: run-basic-image-with-ptrace copy-dlv-to-container
+	@SCRATCH_POD=$(shell kubectl get pods -l app=buggy-scratch -o jsonpath='{.items[0].metadata.name}')
+	kubectl cp $$(pwd) $(SCRATCH_POD):/src
+	kubectl cp /usr/local/go $(SCRATCH_POD):/goroot -c buggy-debug
+	kubectl debug -it pod/$(SCRATCH_POD) --image=buggy-debug:v1-kind --container=$(DEBUG_POD_CONTAINER) --target=buggy-scratch -- \
+		/dlv attach 1 --headless --listen=0.0.0.0:2345 --api-version=2 --accept-multiclient
 
